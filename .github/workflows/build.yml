@@ -113,12 +113,6 @@ jobs:
         run: |
           sh .github/build_github.sh
 
-      - name: Upload LiveContainer IPA
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ env.scheme }}.ipa
-          path: ${{ env.scheme }}.ipa
-      
       - name: Upload LiveContainer+SideStore IPA
         uses: actions/upload-artifact@v7
         with:
