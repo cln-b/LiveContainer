@@ -22,14 +22,57 @@ jobs:
       archive_path: ${{ env.archive_path }}
       artifact: ${{ env.scheme }}.ipa
       artifact2: ${{ env.scheme }}+SideStore.ipa
+      sidestore_build_tag: ${{ steps.sidestore.outputs.build_tag }}
+      sidestore_sha: ${{ steps.sidestore.outputs.sha }}
+      sidestore_msg: ${{ steps.sidestore.outputs.msg }}
+      release_title: ${{ steps.meta.outputs.release_title }}
     steps:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '26.2'
-      - name: Checkout
+      - name: Checkout LiveContainer
         uses: actions/checkout@v6
         with:
+          repository: LiveContainer/LiveContainer
           submodules: recursive
+      - name: Get SideStore details
+        id: sidestore
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REL_JSON=$(curl -fsSL -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            https://api.github.com/repos/SideStore/SideStore/releases/tags/nightly)
+
+          SS_FULL_VERSION=$(echo "$REL_JSON" | jq -r '.body' | grep -oE 'Version: `([^`]+)`' | sed -E 's/Version: `([^`]+)`/\1/')
+          BUILD_TAG=$(echo "$SS_FULL_VERSION" | sed -E 's/.*-([0-9]+\.[0-9]+)\+.*/\1/')
+
+          if [ -z "$BUILD_TAG" ]; then
+            echo "Failed to determine SideStore build tag"
+            exit 1
+          fi
+
+          TARGET_TAG=$(echo "$REL_JSON" | jq -r '.tag_name')
+          COMMIT_JSON=$(curl -fsSL -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            https://api.github.com/repos/SideStore/SideStore/commits/"$TARGET_TAG")
+
+          SS_SHA=$(echo "$COMMIT_JSON" | jq -r '.sha')
+          SS_MSG=$(echo "$COMMIT_JSON" | jq -r '.commit.message' | head -n 1)
+
+          echo "build_tag=$BUILD_TAG" >> "$GITHUB_OUTPUT"
+          echo "full_version=$SS_FULL_VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$SS_SHA" >> "$GITHUB_OUTPUT"
+          echo "msg=$SS_MSG" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Release Title
+        id: meta
+        run: |
+          LC_VERSION=$(plutil -extract CFBundleVersion raw -o - LiveContainer/Info.plist)
+          LC_SHORT_SHA=$(git rev-parse --short=8 HEAD)
+
+          echo "release_title=LC ${LC_VERSION} (main/${LC_SHORT_SHA}), SS ${{ steps.sidestore.outputs.full_version }}" >> "$GITHUB_OUTPUT"
+
       - name: Set Scheme
         id: scheme
         run: |
@@ -70,13 +113,13 @@ jobs:
         run: |
           sh .github/build_github.sh
 
-      - name: Upload a Build Artifact
+      - name: Upload LiveContainer IPA
         uses: actions/upload-artifact@v7
         with:
           name: ${{ env.scheme }}.ipa
           path: ${{ env.scheme }}.ipa
       
-      - name: Upload LiveContainer+SideStore
+      - name: Upload LiveContainer+SideStore IPA
         uses: actions/upload-artifact@v7
         with:
           name: ${{ env.scheme }}+SideStore.ipa
@@ -94,8 +137,10 @@ jobs:
       cancel-in-progress: true
 
     steps:
-      - name: Checkout
+      - name: Checkout LiveContainer Source
         uses: actions/checkout@v3
+        with:
+          repository: LiveContainer/LiveContainer
       - name: Download a Build Artifact
         uses: actions/download-artifact@v8
         with:
@@ -107,29 +152,34 @@ jobs:
       - name: Get Commit Info
         id: commit_info
         run: |
-          COMMIT_SHA=$(git rev-parse HEAD)
-          COMMIT_MSG=$(git log -1 --pretty=%s)
-          echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
-          echo "COMMIT_MSG=$COMMIT_MSG" >> $GITHUB_ENV
+          LC_SHA=$(git rev-parse HEAD)
+          LC_MSG=$(git log -1 --pretty=%s)
+          echo "LC_SHA=$LC_SHA" >> $GITHUB_ENV
+          echo "LC_MSG=$LC_MSG" >> $GITHUB_ENV
       - name: Update AltStore source
         id: update_source
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NIGHTLY_LINK: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
-          commit_sha: ${{ env.COMMIT_SHA }}
-          commit_msg: ${{ env.COMMIT_MSG }}
+          commit_sha: ${{ env.LC_SHA }}
+          commit_msg: ${{ env.LC_MSG }}
         run: |
           python .github/update_json.py
       - name: Nightly Release
-        uses: andelf/nightly-release@5834076edc55cc05975561c9722043f072ac5c26
+        uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with: 
+        with:
+          tag_name: ${{ needs.build.outputs.sidestore_build_tag }}
+          name: ${{ needs.build.outputs.release_title }}
+          make_latest: true
+          prerelease: false
           body: |
-            **Commit:** [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
-            **Message:** ${{ github.event.head_commit.message }}
-            
-            This is a nightly release [created automatically with GitHub Actions workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}).
+            **LiveContainer Commit:** [${{ env.LC_SHA }}](https://github.com/LiveContainer/LiveContainer/commit/${{ env.LC_SHA }})
+            **Message:** ${{ env.LC_MSG }}
+
+            **SideStore Commit:** [${{ needs.build.outputs.sidestore_sha }}](https://github.com/SideStore/SideStore/commit/${{ needs.build.outputs.sidestore_sha }})
+            **Message:** ${{ needs.build.outputs.sidestore_msg }}
           files: |
             ${{ needs.build.outputs.artifact }}
             ${{ needs.build.outputs.artifact2 }}
