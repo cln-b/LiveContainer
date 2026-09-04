@@ -160,9 +160,9 @@ jobs:
         id: update_source
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NIGHTLY_LINK: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
-          commit_sha: ${{ env.LC_SHA }}
-          commit_msg: ${{ env.LC_MSG }}
+          NIGHTLY_TAG: ${{ needs.build.outputs.sidestore_build_tag }}
+          COMMIT_SHA: ${{ env.LC_SHA }}
+          COMMIT_MSG: ${{ env.LC_MSG }}
         run: |
           python .github/update_json.py
       - name: Nightly Release
