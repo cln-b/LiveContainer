@@ -112,6 +112,7 @@ jobs:
           path: ${{ env.archive_path }}.xcarchive.tar
       - name: Create IPA
         run: |
+          sed -i 's|"LiveContainer/SideStore"|"SideStore/SideStore"|g' .github/build_github.sh
           sh .github/build_github.sh
 
       - name: Upload LiveContainer IPA
@@ -157,10 +158,6 @@ jobs:
           LC_MSG=$(git log -1 --pretty=%s)
           echo "LC_SHA=$LC_SHA" >> $GITHUB_ENV
           echo "LC_MSG=$LC_MSG" >> $GITHUB_ENV
-      - name: Patch update_json.py and JSON URLs to target this dummy repo
-        run: |
-          sed -i 's|repo_url = "LiveContainer/LiveContainer"|repo_url = os.environ["GITHUB_REPOSITORY"]|' .github/update_json.py
-          sed -i 's|https://github.com/LiveContainer/LiveContainer|${{ github.server_url }}/${{ github.repository }}|g' .github/update_json.py
       - name: Update AltStore source
         id: update_source
         env:
@@ -170,6 +167,7 @@ jobs:
           commit_msg: ${{ env.LC_MSG }}
         run: |
           sed -i 's|repo_url = "LiveContainer/LiveContainer"|repo_url = os.environ["GITHUB_REPOSITORY"]|g' .github/update_json.py
+          sed -i 's|https://github.com/LiveContainer/LiveContainer|${{ github.server_url }}/${{ github.repository }}|g' .github/update_json.py
           sed -i 's|LiveContainer.ipa|LiveContainer+SideStore.ipa|g' .github/update_json.py
           python .github/update_json.py
       - name: Nightly Release
