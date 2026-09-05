@@ -2,13 +2,14 @@ name: Xcode - Build
 
 on: 
   push:
+    branches: main
   pull_request:
   workflow_dispatch:
     inputs: 
       release__nightly:
         description: Create a nightly release
         type: boolean
-        required: false
+        required: true
 
 jobs:
   build:
@@ -170,11 +171,6 @@ jobs:
         run: |
           sed -i 's|repo_url = "LiveContainer/LiveContainer"|repo_url = os.environ["GITHUB_REPOSITORY"]|g' .github/update_json.py
           sed -i 's|LiveContainer.ipa|LiveContainer+SideStore.ipa|g' .github/update_json.py
-
-          # 3. Read apps_ss_lc.json from the local .github folder instead of fetching over HTTP
-          sed -i 's|https://github.com/.*apps_ss_lc.json|.github/apps_ss_lc.json|g' .github/update_json.py
-
-          # 4. Run the script
           python .github/update_json.py
       - name: Nightly Release
         uses: andelf/nightly-release@5834076edc55cc05975561c9722043f072ac5c26
