@@ -112,7 +112,7 @@ jobs:
           path: ${{ env.archive_path }}.xcarchive.tar
       - name: Create IPA
         run: |
-          sed -i 's|"LiveContainer/SideStore"|"SideStore/SideStore"|g' .github/build_github.sh
+          sed -i '' 's|LiveContainer/SideStore|SideStore/SideStore|g' .github/build_github.sh
           sh .github/build_github.sh
 
       - name: Upload LiveContainer IPA
