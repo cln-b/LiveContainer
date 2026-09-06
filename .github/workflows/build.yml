@@ -171,20 +171,6 @@ jobs:
           sed -i 's|LiveContainer.ipa|LiveContainer+SideStore.ipa|g' .github/update_json.py
           python .github/update_json.py
       - name: Nightly Release
-        uses: andelf/nightly-release@5834076edc55cc05975561c9722043f072ac5c26
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with: 
-          body: |
-            **LiveContainer Commit:** [${{ env.LC_SHA }}](https://github.com/LiveContainer/LiveContainer/commit/${{ env.LC_SHA }})
-            **Message:** ${{ env.LC_MSG }}
-
-            **SideStore Commit:** [${{ needs.build.outputs.sidestore_sha }}](https://github.com/SideStore/SideStore/commit/${{ needs.build.outputs.sidestore_sha }})
-            **Message:** ${{ needs.build.outputs.sidestore_msg }}
-          files: |
-            ${{ needs.build.outputs.artifact2 }}
-            .github/apps_nightly.json
-      - name: Nightly Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -201,6 +187,20 @@ jobs:
             **Message:** ${{ needs.build.outputs.sidestore_msg }}
           files: |
             ${{ needs.build.outputs.artifact2 }}
+      - name: Nightly Release
+        uses: andelf/nightly-release@5834076edc55cc05975561c9722043f072ac5c26
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with: 
+          body: |
+            **LiveContainer Commit:** [${{ env.LC_SHA }}](https://github.com/LiveContainer/LiveContainer/commit/${{ env.LC_SHA }})
+            **Message:** ${{ env.LC_MSG }}
+
+            **SideStore Commit:** [${{ needs.build.outputs.sidestore_sha }}](https://github.com/SideStore/SideStore/commit/${{ needs.build.outputs.sidestore_sha }})
+            **Message:** ${{ needs.build.outputs.sidestore_msg }}
+          files: |
+            ${{ needs.build.outputs.artifact2 }}
+            .github/apps_nightly.json
       - name: Update apps.json in Release 1.0
         uses: softprops/action-gh-release@v3
         with:
